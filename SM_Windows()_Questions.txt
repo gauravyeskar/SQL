@@ -36,7 +36,7 @@ select brand_name,price,rank() over(partition by brand_name order by price desc)
 with cte as ( select brand_name, model, rating,rank()over(order by rating desc) as rnk from sm) 
 select brand_name, model, rating,rnk from cte where model = "Xiaomi 14";
 
--- #######################################
+-- ############################################################################################################################################################
 -- Dense_Rank():- 
 -- Write a query to assign a dense rank to all smartphones based on their Rating globally, from highest to lowest.
 select brand_name,price,rating,dense_rank() over(order by rating desc) as drnk from sm;
@@ -76,7 +76,7 @@ select brand_name,rating,dense_rank()over(order by rating desc) as drnk from sm 
 with cte as (select brand_name,price,dense_rank() over(partition by brand_name order by price desc) as drnk from sm) 
 select count(distinct(drnk)) from cte;
 
--- #########################################
+-- ##############################################################################################################################################################
 -- Row_Number():- 
 -- Assign a unique, sequential row number to every phone when ordered by Price in descending order.
 select brand_name,price,row_number() over(order by price desc) as rn from sm;
@@ -115,7 +115,7 @@ select brand_name,model,price,left(model,1) as first_ltr,row_number() over(parti
 select brand_name,model,price,rating,row_number()over(order by price) as rn1,row_number()over(order by rating)as rn2,
 (row_number()over(order by price asc) - row_number()over(order by rating asc))as diff from sm;
 
--- #######################################
+-- ############################################################################################################################################################
 -- First_Value():- 
 -- Write a query to display the lowest Price (the first value when ordering by price ascending) for the entire dataset next to every phone's price.
 select brand_name,price,first_value(price)over(order by price) as fv from sm;
@@ -150,7 +150,7 @@ select model,rating,first_value(model)over(order by rating desc rows between 5 p
 -- Use First_Value to display the lowest Price within the entire table, regardless of partitioning.
 select brand_name,price,first_value(price)over(order by price asc) as fv from sm;
 
--- #######################################
+-- ############################################################################################################################################################
 -- Last_Value():-
 -- Display the highest Price (the last value when ordering by price ascending) for the entire dataset next to every phone's price. (Requires specific frame definition).
 select brand_name,price,last_value(price)over(order by price rows between unbounded preceding and unbounded following)as lv from sm;
@@ -187,7 +187,7 @@ select brand_name,model,rating,last_value(model)over(order by rating rows betwee
 -- Write a query to see the Price of the last phone listed in the data after ordering all phones by Rating descending.
 select brand_name,price,rating,last_value(price)over(order by rating desc rows between unbounded preceding and unbounded following) as lv from sm;
 
--- #########################################
+-- ##############################################################################################################################################################
 -- Nth_Value():- 
 -- Write a query to display the Model_Name of the 3rd highest-rated phone overall.
 select brand_name,model,price,nth_value(model,3)over(order by rating desc) as nv from sm;
@@ -226,4 +226,157 @@ ORDER BY Rating DESC;
 
 -- Use Nth_value() to display the Brand of the 1st phone when ordered by Price (descending). (This is a good way to test if you can use Nth_VALUE(Brand, 1)$).
 SELECT Brand_name,Model,Price, NTH_VALUE(Brand_name, 1) OVER ( ORDER BY Price DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWINg ) AS Brand_Of_Most_Expensive
+
 FROM sm ORDER BY Price DESC;
+-- ###############################################################################################################################################################
+-- Lag():- 
+-- Write a query to show the Price of the previous (alphabetically preceding) Model_Name next to the current phone's price.
+select brand_name,price,model,lag(price)over(order by model asc) as lg from sm;
+
+-- Partition the data by Brand and display the Rating of the phone that was rated immediately before the current one (when ordered by rating descending).
+select brand_name,rating,lag(rating)over(partition by brand_name order by rating desc) as lg from sm;
+
+-- Calculate the price difference between the current phone and the phone that was two rows before it (offset 2), when ordered by Price descending.
+select brand_name,price,lag(price,2)over(order by price desc) as lg_price,
+(price - lag(price,2)over(order by price desc)) as diff from sm;
+
+-- For the 'Samsung' brand, show the Model_Name of the phone that came immediately before the current phone, ordered by Model_Name alphabetically.
+select brand_name,model,lag(model)over(order by model asc) as lg from sm where brand_name = 'Samsung';
+
+-- Identify all phones whose Rating is higher than the phone immediately preceding it globally (ordered by Price ascending).
+with cte as (select brand_name,rating,price,lag(rating)over(order by price)as lg from sm) 
+select brand_name,rating,price,lg from cte where rating > lg;
+
+-- Use LAG() to find the Price of the phone exactly 5 positions before the current phone, 
+-- partitioned by Brand and ordered by Rating ascending. Use a default value of 0 if the lag
+--  value does not exist.
+with cte as (select brand_name,price,rating,lag(price,5,0)over(partition by brand_name order by rating) as lg from sm)
+select brand_name,price,rating,lg from cte where lg is not null;
+
+-- Find the brand of the phone that was immediately listed before the current phone (ordered by Price ascending).
+select brand_name,price,lag(brand_name)over(order by price)as lg from sm;
+
+-- Write a query to compare the current Price with the Price of the phone three rows before it,
+-- using a default value of the current phone's price if the lagged price is null.
+select brand_name,price,lag(price,3,price)over(order by price) as lg,
+(price - lag(price,3,price)over(order by price))as diff from sm;
+
+-- For the entire dataset (no partitioning), find the Rating of the phone one position before 
+-- the current one, ordered by Model_Name alphabetically.
+select brand_name,model,rating,lag(rating,1) over(order by model)as lg from sm;
+
+-- Use LAG() to calculate the difference in Rating between the current phone and the next phone in the list when ordering by Price descending. (Hint: Lag() with an offset of -1 or a negative order direction can effectively act like LEAD().
+select brand_name,price,rating,lag(rating)over(order by price desc) as lg_rating,
+(rating - lead(rating, 1)over(order by price desc))as diff from sm;
+
+-- #############################################################################################################################################################
+-- Lead():-
+-- Write a query to show the Price of the next (alphabetically succeeding) Model_Name next to the current phone's price.
+select brand_name,model,price,lead(price)over(order by model) as led from sm;
+
+-- Partition the data by Brand and display the Rating of the phone that will be rated immediately after the current one (when ordered by rating descending).
+select brand_name,rating,lead(rating)over(partition by brand_name order by rating) as ld from sm;
+
+-- Calculate the price difference between the current phone and the phone that is two rows afterit (offset 2), when ordered by Price descending.
+select brand_name,price,lead(price,2)over(order by price desc) as ld,
+(price - lead(price,2)over(order by price desc)) as diff from sm;
+
+-- For the 'Xiaomi' brand, show the Model_Name of the phone that comes immediately after the current phone, ordered by Model_Name alphabetically.
+select brand_name,model,lead(model)over(order by model) as ld from sm where brand_name = 'Xiaomi';
+
+-- Identify all phones whose Rating is lower than the phone immediately succeeding it globally(ordered by Price ascending).
+with cte as (select brand_name,rating,price,lead(rating)over(order by price)as ld from sm)
+select brand_name,rating,price,ld from cte where rating<ld;
+
+-- Use LEAD() to find the Rating of the phone exactly 5 positions after the current phone, partitioned by Brand and ordered by Price ascending. Use a default value of the current phone rating if the lead value does not exist.
+select brand_name,rating,price,lead(rating,5,rating)over(partition by brand_name order by price)as ld from sm;
+
+-- Find the brand of the phone that will be immediately listed after the current phone (ordered by Rating descending).
+select brand_name,rating,lead(brand_name)over(order by rating desc) as ld from sm;
+
+-- Write a query to compare the current Price with the Price of the phone three rows ahead of it, using a default value of 0 if the lead price is null.
+select brand_name,price,lead(price,3,0)over(order by price) as ld, (price - lead(price,3,0)over(order by price))as diff from sm;
+
+-- For the entire dataset (no partitioning), find the Price of the phone one position after the current one, ordered by Rating descending.
+select brand_name,price,rating,lead(price,1)over(order by rating desc) as ld from sm;
+
+-- Use LEAD() to calculate the percentage change in Price between the current phone and the 
+-- next phone in the list when ordering by Model_Name alphabetically.
+select brand_name,model,price,lead(price)over(order by model asc) as ld,
+(((lead(price)over(order by model)) - price) /price) * 100 as per_Chnge from sm;
+
+-- #################################################################################################################################################################
+-- CUMULATIVE_SUM() and CUMULATIVE_AVG():- 
+-- Calculate the running total of price globally, ordered by model alphabetically.
+select brand_name,model,price,sum(price) over(order by model rows between unbounded preceding and current row)as cum_sum from sm;
+
+-- Cumulative AVG (Price, Partitioned): -- Find the running average Cumulative_Average of
+-- Price for each Brand, ordered by Rating descending.
+select brand_name,rating,price,avg(price)over(partition by brand_name order by rating desc)as Cum_Avg from sm;
+
+-- CumulativeSum:- Calculate the Cumulative_Sum of Price globally, but reset the sum to zero whenever a phone's price exceeds 15000. (Hint: Requires an unusual partitioning structure)
+with cte as (select brand_name,model,price,sum(case when price > 15000 then 1 else 0 end)
+over(order by price,model rows between unbounded preceding and 1 preceding)as group_cum_sum from sm)
+select brand_name,price,group_cum_sum,sum(price)over(partition by group_cum_sum order by price,model) as cum_sum from cte;
+
+-- Cumulative_Avg (Global, Filtered): -- Find the Cum_Avg of Price globally, but only considering
+-- phones that have a rating of 4.5 or higher, ordered by rating descending. (Hint: Use a case statement inside Avg).
+select brand_name,rating,price,avg(price)over(order by rating desc) as cum_avg from sm where rating >= 4.5;
+select brand_name,rating,price,avg(case when rating >= 4.5 then price else null end)over(order by rating desc) as cum_avg from sm;
+
+-- Cumulative_Sum of Rating (Partitioned): - Calculate the running total of rating within the 'Samsung' brand only, ordered by price ascending.
+select brand_name,rating,sum(rating)over(partition by brand_name order by price rows between unbounded preceding and current row) as cum_sum from sm where brand_name='Samsung'; 
+
+-- Cumulative_Sum (Order by Rating): -- Calculate the Cum_sum of Price globally, ordered by 
+-- Rating descending. What is the sum after the first 10 rows?
+with cte as (select brand_name,rating,price,sum(price)over(order by rating desc) as cum_sum ,row_number()over(order by rating) as rn from sm )
+select brand_name,rating,price,cum_sum from cte where rn = 10;
+
+-- Difference from Cumulative_Sum: -- Display the difference between the current price and the 
+-- Price of the phone 5 rows before it, then calculate the Cumulative_Sum of that difference, 
+-- ordered by Price descending.
+with cte as (select brand_name,price,price - lag(price,5)over(order by price desc) as lg from sm)
+select brand_name,price,lg,sum(price)over(order by price desc) as diff from cte;
+
+-- Cumulative_Avg of Rating (Partitioned, Order by Price): -- Calculate the running average of Rating for each 
+-- Brand_Name, ordered by Price descending.
+select brand_name,price,avg(rating)over(partition by brand_name order by price desc) as cum_Avg from sm;
+
+-- CumulativeSum of Rating (Filtered, Global): -- Calculate the Cumulative_Sum of Rating for all phones, but only 
+-- include the Rating in the sum if the phone's Price is less than 8000 (still counting all rows in 
+-- the running total), ordered by Price ascending.
+select brand_name,Price,rating,sum(case when price < 8000 then rating else null end)over(order by price) as cum_sum from sm;
+
+-- Cumulative Avg of Difference lead: -- Calculate the running average of the difference between the current 
+-- Price and the price of the phone 2 positions ahead LEAD, globally ordered by Price ascending.
+with cte as ( select brand_name,price,price - lead(price,2)over(order by price) as ld from sm)
+select avg(ld) as diff  from cte;
+
+-- ################################################################################################################################################################
+-- MOVING_AVG & PERCENT_CHANGE:- 
+--  Moving_Avg (3-Point Trailing): -- Calculate the 3-point MA of Price globally (current row and two preceding rows),
+-- ordered by Rating ascending. (Hint: Use ROWS BETWEEN 2 PRECEDING AND CURRENT ROW).
+select brand_name,rating,price,avg(price)over(order by rating rows between 2 preceding and current row) as MA from sm;
+
+-- Moving_Sum (4-Row Centered): -- Calculate the Moving_Sum of Rating over the two preceding rows, the current row, and
+--  the one succeeding row (4-row window), partitioned by Brand and ordered by Model_Name alphabetically.
+select brand_name,sum(rating)over(partition by brand_name order by Model rows between 2 preceding and 1 following) as MS from sm;
+
+-- MovingAvg (5-Row Leading): -- Calculate the 5-point MA of Price globally(current row and four succeeding rows), 
+-- ordered by Price descending.
+select brand_name,price,avg(price)over(order by price desc rows between current row and 4 following) as MA from sm;
+ 
+-- Percent Change Price from LAG: -- Calculate the percentage change in price from the phone 2 positions behind the 
+-- current one, globally ordered by price ascending.
+select brand_name,price,lag(price,2)over(order by price) as lg,
+(((price - lag(price,2)over( order by price)))/lag(price,2)over(order by price)) * 100 as per_Chnge from sm;
+
+-- Percent Change (Rating from LEAD): -- Calculate the percentage change in rating to the phone 3 positions ahead of 
+-- the current one, partitioned by Brand and ordered by Rating descending.
+with cte as (select brand_name,rating,lead(rating,3)over(partition by brand_name order by rating desc) as ld from sm)
+select brand_name,rating,ld,((ld - rating)/rating) * 100 as per_chnge from cte;
+
+-- Moving AVG (Partitioned, 2-Row Trailing): -- Calculate the MA of Price over the current row and the preceding row 
+-- (2-row trailing window), partitioned by Brand and ordered by rating descending.
+select brand_name,price,rating,avg(price)over(partition by brand_name order by rating desc rows between 1 preceding 
+and  current row ) as MA from sm;
